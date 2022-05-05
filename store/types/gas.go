@@ -20,6 +20,9 @@ const (
 // Gas measured by the SDK
 type Gas = uint64
 
+// GasReport stores the fine grained gas cost breakdown
+type GasReport = map[string]Gas
+
 // ErrorNegativeGasConsumed defines an error thrown when the amount of gas refunded results in a
 // negative gas consumed amount.
 type ErrorNegativeGasConsumed struct {
@@ -47,15 +50,28 @@ type GasMeter interface {
 	IsPastLimit() bool
 	IsOutOfGas() bool
 	String() string
+	Report() GasReport
 }
 
 type basicGasMeter struct {
 	limit    Gas
 	consumed Gas
+
+	costBreakdownEnabled bool // TODO: Come up with a safer and less dumb way to do this once it works (we shouldnt have to check this bool before safely using `report`, it should be more obvious from the types)
+	report               GasReport
 }
 
 // NewGasMeter returns a reference to a new basicGasMeter.
-func NewGasMeter(limit Gas) GasMeter {
+func NewGasMeter(limit Gas, costBreakdownEnabled bool) GasMeter {
+	if costBreakdownEnabled {
+		return &basicGasMeter{
+			limit:                limit,
+			consumed:             0,
+			costBreakdownEnabled: true,
+			report:               map[string]Gas{},
+		}
+	}
+
 	return &basicGasMeter{
 		limit:    limit,
 		consumed: 0,
@@ -87,6 +103,7 @@ func addUint64Overflow(a, b uint64) (uint64, bool) {
 	return a + b, false
 }
 
+// ConsumeGas adds the given amount of gas to the gas consumed and panics if it overflows the limit or out of gas.
 func (g *basicGasMeter) ConsumeGas(amount Gas, descriptor string) {
 	var overflow bool
 	g.consumed, overflow = addUint64Overflow(g.consumed, amount)
@@ -97,6 +114,10 @@ func (g *basicGasMeter) ConsumeGas(amount Gas, descriptor string) {
 
 	if g.consumed > g.limit {
 		panic(ErrorOutOfGas{descriptor})
+	}
+
+	if g.costBreakdownEnabled {
+		g.report[descriptor] += amount
 	}
 }
 
@@ -112,6 +133,10 @@ func (g *basicGasMeter) RefundGas(amount Gas, descriptor string) {
 	}
 
 	g.consumed -= amount
+
+	if g.costBreakdownEnabled {
+		g.report[descriptor] -= amount
+	}
 }
 
 func (g *basicGasMeter) IsPastLimit() bool {
@@ -124,6 +149,10 @@ func (g *basicGasMeter) IsOutOfGas() bool {
 
 func (g *basicGasMeter) String() string {
 	return fmt.Sprintf("BasicGasMeter:\n  limit: %d\n  consumed: %d", g.limit, g.consumed)
+}
+
+func (g *basicGasMeter) Report() GasReport {
+	return g.report
 }
 
 type infiniteGasMeter struct {
@@ -182,6 +211,10 @@ func (g *infiniteGasMeter) IsOutOfGas() bool {
 
 func (g *infiniteGasMeter) String() string {
 	return fmt.Sprintf("InfiniteGasMeter:\n  consumed: %d", g.consumed)
+}
+
+func (g *infiniteGasMeter) Report() GasReport {
+	return nil
 }
 
 // GasConfig defines gas cost for each operation on KVStores

@@ -592,6 +592,9 @@ func (app *BaseApp) runTx(mode runTxMode, txBytes []byte) (gInfo sdk.GasInfo, re
 			err, result = processRecovery(r, recoveryMW), nil
 		}
 
+		// TODO: Im just debugging this here for local testing
+		fmt.Println("GasReport: ", ctx.GasMeter().Report())
+
 		gInfo = sdk.GasInfo{GasWanted: gasWanted, GasUsed: ctx.GasMeter().GasConsumed()}
 	}()
 

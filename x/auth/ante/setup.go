@@ -72,5 +72,5 @@ func SetGasMeter(simulate bool, ctx sdk.Context, gasLimit uint64) sdk.Context {
 		return ctx.WithGasMeter(sdk.NewInfiniteGasMeter())
 	}
 
-	return ctx.WithGasMeter(sdk.NewGasMeter(gasLimit))
+	return ctx.WithGasMeter(sdk.NewInstrumentedGasMeter(gasLimit))
 }

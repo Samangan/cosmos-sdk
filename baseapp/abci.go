@@ -170,7 +170,7 @@ func (app *BaseApp) BeginBlock(req abci.RequestBeginBlock) (res abci.ResponseBeg
 	// add block gas meter
 	var gasMeter sdk.GasMeter
 	if maxGas := app.getMaximumBlockGas(app.deliverState.ctx); maxGas > 0 {
-		gasMeter = sdk.NewGasMeter(maxGas)
+		gasMeter = sdk.NewGasMeter(maxGas) // NOTE: We want to leave this usage alone, because we dont want to add a cost breakdown report for the entire block (although that might be interesting in some cases)
 	} else {
 		gasMeter = sdk.NewInfiniteGasMeter()
 	}

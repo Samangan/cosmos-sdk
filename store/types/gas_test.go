@@ -40,7 +40,7 @@ func TestGasMeter(t *testing.T) {
 	}
 
 	for tcnum, tc := range cases {
-		meter := NewGasMeter(tc.limit)
+		meter := NewGasMeter(tc.limit, false)
 		used := uint64(0)
 
 		for unum, usage := range tc.usage {
@@ -65,7 +65,7 @@ func TestGasMeter(t *testing.T) {
 		require.Equal(t, meter.GasConsumed(), meter.Limit(), "Gas consumption not match limit+1")
 		require.Panics(t, func() { meter.RefundGas(meter.GasConsumed()+1, "refund greater than consumed") })
 
-		meter2 := NewGasMeter(math.MaxUint64)
+		meter2 := NewGasMeter(math.MaxUint64, false)
 		meter2.ConsumeGas(Gas(math.MaxUint64/2), "consume half max uint64")
 		require.Panics(t, func() { meter2.ConsumeGas(Gas(math.MaxUint64/2)+2, "panic") })
 	}
@@ -108,5 +108,26 @@ func TestTransientGasConfig(t *testing.T) {
 		WriteCostFlat:    200,
 		WriteCostPerByte: 3,
 		IterNextCostFlat: 3,
+	})
+}
+
+func TestGasInstrumentation(t *testing.T) {
+	t.Parallel()
+	limit := uint64(10000)
+
+	meter := NewGasMeter(limit, true)
+
+	meter.ConsumeGas(1, "source_1")
+	meter.ConsumeGas(2, "source_2")
+	meter.ConsumeGas(3, "source_3")
+	meter.ConsumeGas(4, "source_4")
+
+	report := meter.Report()
+
+	require.Equal(t, report, map[string]Gas{
+		"source_1": uint64(1),
+		"source_2": uint64(2),
+		"source_3": uint64(3),
+		"source_4": uint64(4),
 	})
 }
